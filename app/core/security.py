@@ -95,3 +95,11 @@ def get_usuario_atual(
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
 
     return payload
+def verificar_admin(usuario_payload: dict):
+    if usuario_payload.get("sub") is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuário inválido"
+        )
+
+    return usuario_payload

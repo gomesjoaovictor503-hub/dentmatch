@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+from pydantic import BaseModel, EmailStr
 
 class DenteCreate(BaseModel):
     marca: str
@@ -19,12 +19,17 @@ class DenteResponse(DenteCreate):
     class Config:
         orm_mode = True
 class UserCreate(BaseModel):
-    username: str
+    nome: str
+    email: EmailStr
+    telefone: str
+    cidade: str
+    estado: str
+    profissao: str
     senha: str
 
 
 class UserLogin(BaseModel):
-    username: str
+    email: EmailStr
     senha: str
 
 

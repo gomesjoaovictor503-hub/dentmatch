@@ -1,21 +1,17 @@
-from ..core.security import get_usuario_atual
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-
-from .. import models, schemas
 from ..database import SessionLocal
-from ..services.comparador import (
-    calcular_score_e_diferencas,
-    score_para_percentual,
-    classificar_similaridade
+from .. import models, schemas
+from ..services.comparador import calcular_similaridade
+from ..core.security import get_usuario_atual
+
+router = APIRouter(
+    prefix="/dentes",
+    tags=["Dentes"]
 )
 
-router = APIRouter(prefix="/dentes", tags=["Dentes"])
 
-
-# ============================
-# DEPENDÊNCIA DE BANCO
-# ============================
+# 🔹 Dependência de banco
 def get_db():
     db = SessionLocal()
     try:
@@ -24,72 +20,73 @@ def get_db():
         db.close()
 
 
-# ============================
-# CRIAR DENTE
-# ============================
-@router.post("/", response_model=schemas.DenteResponse)
-def criar_dente(dente: schemas.DenteCreate, db: Session = Depends(get_db)):
+# 🔹 Criar dente (protegido)
+@router.post("/")
+def criar_dente(
+    dente: schemas.DenteCreate,
+    usuario=Depends(get_usuario_atual),
+    db: Session = Depends(get_db)
+):
     novo_dente = models.Dente(**dente.dict())
+
     db.add(novo_dente)
     db.commit()
     db.refresh(novo_dente)
+
     return novo_dente
 
 
-# ============================
-# LISTAR DENTES
-# ============================
+# 🔹 Listar todos os dentes
 @router.get("/")
-def listar_dentes(db: Session = Depends(get_db)):
+def listar_dentes(
+    usuario=Depends(get_usuario_atual),
+    db: Session = Depends(get_db)
+):
     return db.query(models.Dente).all()
 
 
-# ============================
-# COMPARAR DENTE
-# ============================
+# 🔥 Comparar dentes (NOVO MOTOR AJUSTADO)
 @router.get("/comparar/{dente_id}")
-def comparar_dente(
+def comparar_dentes(
     dente_id: int,
-    db: Session = Depends(get_db),
-    usuario=Depends(get_usuario_atual)
+    usuario=Depends(get_usuario_atual),
+    db: Session = Depends(get_db)
 ):
+
     dente_base = db.query(models.Dente).filter(
         models.Dente.id == dente_id
     ).first()
 
     if not dente_base:
-        return {"erro": "Dente não encontrado"}
+        raise HTTPException(status_code=404, detail="Dente não encontrado")
 
-    todos_dentes = db.query(models.Dente).filter(
-        models.Dente.id != dente_id
-    ).all()
+    todos_dentes = db.query(models.Dente).all()
 
     ranking = []
 
-    for dente in todos_dentes:
+    for outro in todos_dentes:
 
-        score, diferencas = calcular_score_e_diferencas(
-            dente_base,
-            dente
-        )
+        if outro.id == dente_base.id:
+            continue
 
-        percentual = score_para_percentual(score)
-        classificacao = classificar_similaridade(percentual)
+        similaridade = calcular_similaridade(dente_base, outro)
+
+        # Ignora arcada/tipo incompatível
+        if similaridade is None:
+            continue
 
         ranking.append({
-            "id": dente.id,
-            "marca": dente.marca,
-            "modelo": dente.modelo,
-            "formato": dente.formato,
-            "similaridade": percentual,
-            "classificacao": classificacao,
-            "diferencas": diferencas
+            "id": outro.id,
+            "marca": outro.marca,
+            "linha": outro.linha,
+            "modelo": outro.modelo,
+            "arcada": outro.arcada,
+            "tipo": outro.tipo,
+            "formato": outro.formato,
+            "similaridade": similaridade
         })
 
-    ranking.sort(
-        key=lambda x: x["similaridade"],
-        reverse=True
-    )
+    ranking.sort(key=lambda x: x["similaridade"], reverse=True)
 
     melhor = ranking[0] if ranking else None
 
@@ -97,7 +94,10 @@ def comparar_dente(
         "dente_base": {
             "id": dente_base.id,
             "marca": dente_base.marca,
+            "linha": dente_base.linha,
             "modelo": dente_base.modelo,
+            "arcada": dente_base.arcada,
+            "tipo": dente_base.tipo,
             "formato": dente_base.formato
         },
         "melhor_equivalente": melhor,
