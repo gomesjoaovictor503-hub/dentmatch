@@ -18,3 +18,16 @@ class DenteResponse(DenteCreate):
 
     class Config:
         orm_mode = True
+class UserCreate(BaseModel):
+    username: str
+    senha: str
+
+
+class UserLogin(BaseModel):
+    username: str
+    senha: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str

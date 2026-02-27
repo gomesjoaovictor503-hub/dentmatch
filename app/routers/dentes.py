@@ -1,3 +1,4 @@
+from ..core.security import get_usuario_atual
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -47,8 +48,11 @@ def listar_dentes(db: Session = Depends(get_db)):
 # COMPARAR DENTE
 # ============================
 @router.get("/comparar/{dente_id}")
-def comparar_dente(dente_id: int, db: Session = Depends(get_db)):
-
+def comparar_dente(
+    dente_id: int,
+    db: Session = Depends(get_db),
+    usuario=Depends(get_usuario_atual)
+):
     dente_base = db.query(models.Dente).filter(
         models.Dente.id == dente_id
     ).first()
