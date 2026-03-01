@@ -6,6 +6,20 @@ from PyPDF2 import PdfReader
 PDF_FOLDER = "importacoes/pdf"
 CSV_FOLDER = "importacoes/csv"
 
+
+# 🔹 NOVA FUNÇÃO: apenas extrai texto
+def extrair_texto_pdf(caminho_pdf):
+    reader = PdfReader(caminho_pdf)
+    texto = ""
+
+    for page in reader.pages:
+        texto_extraido = page.extract_text()
+        if texto_extraido:
+            texto += texto_extraido + "\n"
+
+    return texto
+
+
 def detectar_marca(texto):
     if "Magister" in texto:
         return "Kulzer", "Magister"
@@ -15,11 +29,8 @@ def detectar_marca(texto):
         return "Trilux", "Linha Comercial"
     return "Desconhecida", "Linha Genérica"
 
+
 def validar_medidas(n1, n2, n3):
-    """
-    Evita cadastrar lixo.
-    Faixas clínicas reais aproximadas.
-    """
     try:
         n1 = float(n1)
         n2 = float(n2)
@@ -31,6 +42,7 @@ def validar_medidas(n1, n2, n3):
         return True
 
     return False
+
 
 def extrair_modelos(texto, marca, linha):
     padrao = r'(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+([A-Z0-9\/\- ]{2,})'
@@ -62,24 +74,23 @@ def extrair_modelos(texto, marca, linha):
 
     return dados
 
-def processar_pdf(caminho_pdf):
-    reader = PdfReader(caminho_pdf)
-    texto = ""
 
-    for page in reader.pages:
-        texto += page.extract_text() + "\n"
-
+# 🔹 Processa texto já extraído
+def processar_texto(texto):
     marca, linha = detectar_marca(texto)
     dados = extrair_modelos(texto, marca, linha)
-
     return dados
 
+
+# 🔹 Mantém execução isolada para testes
 def executar():
     arquivos = [f for f in os.listdir(PDF_FOLDER) if f.endswith(".pdf")]
 
     for arquivo in arquivos:
         caminho_pdf = os.path.join(PDF_FOLDER, arquivo)
-        dados = processar_pdf(caminho_pdf)
+
+        texto = extrair_texto_pdf(caminho_pdf)
+        dados = processar_texto(texto)
 
         if not dados:
             print(f"Nenhum dado válido encontrado em {arquivo}")
@@ -103,5 +114,6 @@ def executar():
 
         print(f"CSV gerado: {nome_csv} | Registros: {len(df)}")
 
-if _name_ == "_main_":
+
+if __name__ == "__main__":
     executar()
